@@ -1,10 +1,11 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, status, HTTPException
 from pydantic import BaseModel
-from typing import Optional
+from typing import List
+
+from db import SessionLocal
+import models
 
 # creating the base model
-
-
 class Item(BaseModel):  # serializer (?)
     id: int
     name: str
@@ -12,37 +13,72 @@ class Item(BaseModel):  # serializer (?)
     price: int
     on_stock: bool
 
+    class Config:
+        orm_mode = True
+
+db = SessionLocal()
 
 app = FastAPI()
 
+@app.get("/items", response_model=List[Item], status_code=status.HTTP_200_OK)
+def get_all_items():
+    items = db.query(models.Item).all()
 
-@app.get("/")
-def index():
-    return {"msg": "hello, world!"}
+    return items
 
+@app.get("/items/{item_id}", response_model=Item, status_code=status.HTTP_200_OK)
+def get_an_item(item_id: int):
+    item = db.query(models.Item).filter(models.Item.id == item_id).first()
 
-@app.get("/greet/{name}")
-def greet(name: str):
-    return {
-        "status": "success",
-        "message": "hello, %s!" % (name)
-    }
+    if item is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Item not found")
 
+    return item
 
-@app.get("/greet")
-def greet_optional(name: Optional[str] = "stranger"):
-    return {
-        "status": "success",
-        "message": f"hello, {name}!"
-    }
+@app.post("/items", response_model=Item, status_code=status.HTTP_201_CREATED)
+def create_an_item(item: Item):
+    new_item = models.Item(
+        name=item.name,
+        description=item.description,
+        price=item.price,
+        on_stock=item.on_stock
+    )
 
+    db_item = db.query(models.Item).filter(models.Item.name == new_item.name).first()
 
-@app.put("/item/{item_id}")
-def update_item(item_id: int, item: Item):
-    return {
-        "id": item_id,
-        "name": item.name,
-        "description": item.description,
-        "price": item.price,
-        "on_stock": item.on_stock
-    }
+    if db_item is not None:    
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Item already exists")
+    
+    db.add(new_item)
+    db.commit()
+
+    return new_item
+    
+
+@app.put("/items/{item_id}", response_model=Item, status_code=status.HTTP_200_OK)
+def update_an_item(item_id: int, item: Item):
+    item_to_update = db.query(models.Item).filter(models.Item.id == item_id).first()
+
+    if item_to_update is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Item not found")
+
+    item_to_update.name = item.name
+    item_to_update.price = item.price
+    item_to_update.description = item.description
+    item_to_update.on_stock = item.on_stock
+
+    db.commit()
+
+    return item_to_update
+
+@app.delete("/items/{item_id}")
+def delete_an_item(item_id: int):
+    item_to_delete = db.query(models.Item).filter(models.Item.id == item_id).first()
+
+    if item_to_delete is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Item not found")
+    
+    db.delete(item_to_delete)
+    db.commit()
+    
+    return item_to_delete
