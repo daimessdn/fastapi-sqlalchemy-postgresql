@@ -33,7 +33,7 @@ def greet(name: str):
 def greet_optional(name: Optional[str] = "stranger"):
     return {
         "status": "success",
-        "message": f"hello, {name}"
+        "message": f"hello, {name}!"
     }
 
 
