@@ -23,7 +23,18 @@ def index():
 
 @app.get("/greet/{name}")
 def greet(name: str):
-    return {"status": "success", "message": "hello, %s!" % (name)}
+    return {
+        "status": "success",
+        "message": "hello, %s!" % (name)
+    }
+
+
+@app.get("/greet")
+def greet_optional(name: Optional[str] = "stranger"):
+    return {
+        "status": "success",
+        "message": f"hello, {name}"
+    }
 
 
 @app.put("/item/{item_id}")
